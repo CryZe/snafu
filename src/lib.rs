@@ -96,7 +96,7 @@ pub mod futures;
 #[cfg(feature = "rust_1_30")]
 extern crate snafu_derive;
 #[cfg(feature = "rust_1_30")]
-pub use snafu_derive::Snafu;
+pub use snafu_derive::{Snafu, SnafuDebug};
 
 #[cfg(feature = "rust_1_30")]
 extern crate doc_comment;
@@ -559,4 +559,14 @@ where
 
     /// Combine the information to produce the error
     fn into_error(self, source: Self::Source) -> Error;
+}
+
+/// Iterates over the whole error chain.
+pub fn chain<'a>(error: &'a (dyn std::error::Error + 'static)) -> impl Iterator<Item = &'a (dyn std::error::Error + 'static)> {
+    std::iter::successors(Some(error), |e| e.source())
+}
+
+/// Iterates over the sources of the error, skipping the error itself.
+pub fn sources(error: &dyn std::error::Error) -> impl Iterator<Item = &(dyn std::error::Error + 'static)> {
+    std::iter::successors(error.source(), |e| e.source())
 }

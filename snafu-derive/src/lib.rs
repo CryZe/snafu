@@ -18,7 +18,14 @@ use syn::parse::Result as SynResult;
 pub fn snafu_derive(input: TokenStream) -> TokenStream {
     let ast = syn::parse(input).expect("Could not parse type to derive Error for");
 
-    impl_snafu_macro(ast)
+    impl_snafu_macro(ast, false)
+}
+
+#[proc_macro_derive(SnafuDebug, attributes(snafu))]
+pub fn snafu_debug_derive(input: TokenStream) -> TokenStream {
+    let ast = syn::parse(input).expect("Could not parse type to derive Error for");
+
+    impl_snafu_macro(ast, true)
 }
 
 type MultiSynResult<T> = std::result::Result<T, Vec<syn::Error>>;
@@ -35,6 +42,7 @@ struct EnumInfo {
     generics: syn::Generics,
     variants: Vec<VariantInfo>,
     default_visibility: UserInput,
+    with_debug: bool,
 }
 
 struct VariantInfo {
@@ -52,6 +60,7 @@ struct StructInfo {
     name: syn::Ident,
     generics: syn::Generics,
     transformation: Transformation,
+    with_debug: bool,
 }
 
 #[derive(Clone)]
@@ -98,8 +107,8 @@ impl Transformation {
     }
 }
 
-fn impl_snafu_macro(ty: syn::DeriveInput) -> TokenStream {
-    match parse_snafu_information(ty) {
+fn impl_snafu_macro(ty: syn::DeriveInput, with_debug: bool) -> TokenStream {
+    match parse_snafu_information(ty, with_debug) {
         Ok(info) => info.into(),
         Err(e) => to_compile_errors(e).into(),
     }
@@ -110,7 +119,7 @@ fn to_compile_errors(errors: Vec<syn::Error>) -> proc_macro2::TokenStream {
     quote! { #(#compile_errors)* }
 }
 
-fn parse_snafu_information(ty: syn::DeriveInput) -> MultiSynResult<SnafuInfo> {
+fn parse_snafu_information(ty: syn::DeriveInput, with_debug: bool) -> MultiSynResult<SnafuInfo> {
     use syn::spanned::Spanned;
     use syn::Data;
 
@@ -124,9 +133,12 @@ fn parse_snafu_information(ty: syn::DeriveInput) -> MultiSynResult<SnafuInfo> {
     } = ty;
 
     match data {
-        Data::Enum(enum_) => parse_snafu_enum(enum_, ident, generics, attrs).map(SnafuInfo::Enum),
+        Data::Enum(enum_) => {
+            parse_snafu_enum(enum_, ident, generics, attrs, with_debug).map(SnafuInfo::Enum)
+        }
         Data::Struct(struct_) => {
-            parse_snafu_struct(struct_, ident, generics, attrs, span).map(SnafuInfo::Struct)
+            parse_snafu_struct(struct_, ident, generics, attrs, span, with_debug)
+                .map(SnafuInfo::Struct)
         }
         _ => Err(vec![syn::Error::new(
             span,
@@ -140,6 +152,7 @@ fn parse_snafu_enum(
     name: syn::Ident,
     generics: syn::Generics,
     attrs: Vec<syn::Attribute>,
+    with_debug: bool,
 ) -> MultiSynResult<EnumInfo> {
     use syn::spanned::Spanned;
     use syn::Fields;
@@ -291,6 +304,7 @@ fn parse_snafu_enum(
         generics,
         variants,
         default_visibility,
+        with_debug,
     })
 }
 
@@ -300,6 +314,7 @@ fn parse_snafu_struct(
     generics: syn::Generics,
     attrs: Vec<syn::Attribute>,
     span: proc_macro2::Span,
+    with_debug: bool,
 ) -> MultiSynResult<StructInfo> {
     use syn::Fields;
 
@@ -358,6 +373,7 @@ fn parse_snafu_struct(
         name,
         generics,
         transformation,
+        with_debug,
     })
 }
 
@@ -703,9 +719,29 @@ impl EnumInfo {
         let error_impl = ErrorImpl(&self);
         let error_compat_impl = ErrorCompatImpl(&self);
 
+        let debug_impl = if self.with_debug {
+            let generics = &self.generics;
+            let parameterized_enum_name = &self.parameterized_name();
+            let where_clauses = &self.provided_where_clauses();
+
+            quote! {
+                impl#generics std::fmt::Debug for #parameterized_enum_name
+                where
+                    #(#where_clauses),*
+                {
+                    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                        std::fmt::Display::fmt(self, f)
+                    }
+                }
+            }
+        } else {
+            quote! {}
+        };
+
         quote! {
             #context_selectors
             #display_impl
+            #debug_impl
             #error_impl
             #error_compat_impl
         }
@@ -1159,6 +1195,7 @@ impl StructInfo {
             generics,
             name,
             transformation,
+            with_debug,
         } = self;
 
         let inner_type = transformation.ty();
@@ -1233,6 +1270,21 @@ impl StructInfo {
             }
         };
 
+        let debug_impl = if with_debug {
+            quote! {
+                impl#generics std::fmt::Debug for #parameterized_struct_name
+                where
+                    #(#where_clauses),*
+                {
+                    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                        std::fmt::Display::fmt(self, f)
+                    }
+                }
+            }
+        } else {
+            quote! {}
+        };
+
         let from_impl = quote! {
             impl#generics std::convert::From<#inner_type> for #parameterized_struct_name
             where
@@ -1248,6 +1300,7 @@ impl StructInfo {
             #error_impl
             #error_compat_impl
             #display_impl
+            #debug_impl
             #from_impl
         }
     }
