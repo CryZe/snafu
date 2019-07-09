@@ -101,6 +101,13 @@ pub use snafu_derive::{Snafu, SnafuDebug};
 #[cfg(feature = "rust_1_30")]
 extern crate doc_comment;
 
+#[cfg(feature = "print")]
+extern crate termcolor;
+#[cfg(feature = "print")]
+mod print;
+#[cfg(feature = "print")]
+pub use print::print_error;
+
 #[cfg(feature = "rust_1_30")]
 macro_rules! generate_guide {
     (pub mod $name:ident; $($rest:tt)*) => {
