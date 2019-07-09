@@ -10,13 +10,14 @@ pub struct ErrorMessage {
 
 impl ErrorMessage {
     /// TODO:
-    pub fn without_source(message: impl Into<Cow<'static, str>>) -> Self {
+    pub fn new(message: impl Into<Cow<'static, str>>) -> Self {
         Self { message: message.into(), source: None }
     }
 
     /// TODO:
-    pub fn with_source(message: impl Into<Cow<'static, str>>, source: impl Error + 'static) -> Self {
-        Self { message: message.into(), source: Some(Box::new(source)) }
+    pub fn with_source(mut self, source: impl Error + 'static) -> Self {
+        self.source = Some(Box::new(source));
+        self
     }
 }
 

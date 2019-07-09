@@ -336,7 +336,7 @@ impl<T, E> ResultExt<T, E> for std::result::Result<T, E> {
         E2: From<ErrorMessage>,
     {
         self.map_err(|error| {
-            ErrorMessage::with_source(context, error).into()
+            ErrorMessage::new(context).with_source(error).into()
         })
     }
 
@@ -348,7 +348,7 @@ impl<T, E> ResultExt<T, E> for std::result::Result<T, E> {
         E2: From<ErrorMessage>,
     {
         self.map_err(|error| {
-            ErrorMessage::with_source(context(), Box::new(error)).into()
+            ErrorMessage::new(context()).with_source(Box::new(error)).into()
         })
     }
 
@@ -638,4 +638,10 @@ pub fn chain<'a>(error: &'a (dyn std::error::Error + 'static)) -> impl Iterator<
 /// Iterates over the sources of the error, skipping the error itself.
 pub fn sources(error: &dyn std::error::Error) -> impl Iterator<Item = &(dyn std::error::Error + 'static)> {
     std::iter::successors(error.source(), |e| e.source())
+}
+
+/// TODO:
+#[macro_export]
+macro_rules! format_err {
+    ($($arg:tt)*) => { $crate::ErrorMessage::new(format!($($arg)*)) }
 }
