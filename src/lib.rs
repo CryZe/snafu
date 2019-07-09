@@ -284,7 +284,7 @@ pub trait ResultExt<T, E>: Sized {
 
     #[cfg(feature = "print")]
     /// Prints the error if there is one.
-    fn and_print(self) -> Option<T>
+    fn and_print_errors(self) -> Option<T>
     where
         E: std::error::Error;
 }
@@ -311,7 +311,7 @@ impl<T, E> ResultExt<T, E> for std::result::Result<T, E> {
     }
 
     #[cfg(feature = "print")]
-    fn and_print(self) -> Option<T>
+    fn and_print_errors(self) -> Option<T>
     where
         E: std::error::Error,
     {
