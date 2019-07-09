@@ -14,8 +14,8 @@ impl ErrorMessage {
     }
 
     /// TODO:
-    pub fn with_source(message: String, source: Box<dyn Error>) -> Self {
-        Self { message, source: Some(source) }
+    pub fn with_source(message: String, source: impl Error + 'static) -> Self {
+        Self { message, source: Some(Box::new(source)) }
     }
 }
 

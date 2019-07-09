@@ -334,7 +334,7 @@ impl<T, E> ResultExt<T, E> for std::result::Result<T, E> {
         E2: From<ErrorMessage>,
     {
         self.map_err(|error| {
-            ErrorMessage::with_source(context.into(), Box::new(error)).into()
+            ErrorMessage::with_source(context.into(), error).into()
         })
     }
 
