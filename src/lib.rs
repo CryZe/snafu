@@ -281,6 +281,12 @@ pub trait ResultExt<T, E>: Sized {
     {
         self.with_context(context)
     }
+
+    #[cfg(feature = "print")]
+    /// Prints the error if there is one.
+    fn and_print(self) -> Option<T>
+    where
+        E: std::error::Error;
 }
 
 impl<T, E> ResultExt<T, E> for std::result::Result<T, E> {
@@ -302,6 +308,20 @@ impl<T, E> ResultExt<T, E> for std::result::Result<T, E> {
             let context = context();
             context.into_error(error)
         })
+    }
+
+    #[cfg(feature = "print")]
+    fn and_print(self) -> Option<T>
+    where
+        E: std::error::Error,
+    {
+        match self {
+            Ok(t) => Some(t),
+            Err(e) => {
+                print_error(&e);
+                None
+            }
+        }
     }
 }
 
