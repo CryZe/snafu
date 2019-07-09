@@ -1,6 +1,5 @@
 use std::error::Error;
 use std::fmt;
-use super::IntoError;
 
 /// TODO:
 pub struct ErrorMessage {

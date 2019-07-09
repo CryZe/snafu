@@ -231,6 +231,13 @@ pub trait ResultExt<T, E>: Sized {
         E: std::error::Error + 'static,
         E2: From<ErrorMessage>;
 
+    /// With a context message.
+    fn with_context_msg<E2, S>(self, context: S) -> Result<T, E2>
+    where
+        S: FnOnce() -> String,
+        E: std::error::Error + 'static,
+        E2: From<ErrorMessage>;
+
     /// Extend a [`Result`][]'s error with lazily-generated context-sensitive information.
     ///
     /// [`Result`]: std::result::Result
@@ -328,6 +335,17 @@ impl<T, E> ResultExt<T, E> for std::result::Result<T, E> {
     {
         self.map_err(|error| {
             ErrorMessage::with_source(context.into(), Box::new(error)).into()
+        })
+    }
+
+    fn with_context_msg<E2, S>(self, context: S) -> Result<T, E2>
+    where
+        S: FnOnce() -> String,
+        E: std::error::Error + 'static,
+        E2: From<ErrorMessage>
+    {
+        self.map_err(|error| {
+            ErrorMessage::with_source(context(), Box::new(error)).into()
         })
     }
 
