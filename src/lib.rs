@@ -154,6 +154,7 @@ generate_guide! {
 #[cfg(feature = "rust_1_30")]
 doc_comment::doctest!("../README.md", readme_tests);
 
+use std::borrow::Cow;
 use std::error;
 
 /// Ensure a condition is true. If it is not, return from the function
@@ -227,14 +228,15 @@ pub trait ResultExt<T, E>: Sized {
     /// With a context message.
     fn context_msg<E2, S>(self, context: S) -> Result<T, E2>
     where
-        S: Into<String>,
+        S: Into<Cow<'static, str>>,
         E: std::error::Error + 'static,
         E2: From<ErrorMessage>;
 
     /// With a context message.
-    fn with_context_msg<E2, S>(self, context: S) -> Result<T, E2>
+    fn with_context_msg<E2, F, S>(self, context: F) -> Result<T, E2>
     where
-        S: FnOnce() -> String,
+        F: FnOnce() -> S,
+        S: Into<Cow<'static, str>>,
         E: std::error::Error + 'static,
         E2: From<ErrorMessage>;
 
@@ -329,7 +331,7 @@ impl<T, E> ResultExt<T, E> for std::result::Result<T, E> {
 
     fn context_msg<E2, S>(self, context: S) -> Result<T, E2>
     where
-        S: Into<String>,
+        S: Into<Cow<'static, str>>,
         E: std::error::Error + 'static,
         E2: From<ErrorMessage>,
     {
@@ -338,11 +340,12 @@ impl<T, E> ResultExt<T, E> for std::result::Result<T, E> {
         })
     }
 
-    fn with_context_msg<E2, S>(self, context: S) -> Result<T, E2>
+    fn with_context_msg<E2, F, S>(self, context: F) -> Result<T, E2>
     where
-        S: FnOnce() -> String,
+        F: FnOnce() -> S,
+        S: Into<Cow<'static, str>>,
         E: std::error::Error + 'static,
-        E2: From<ErrorMessage>
+        E2: From<ErrorMessage>,
     {
         self.map_err(|error| {
             ErrorMessage::with_source(context(), Box::new(error)).into()

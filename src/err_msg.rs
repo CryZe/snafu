@@ -1,20 +1,21 @@
 use std::error::Error;
 use std::fmt;
+use std::borrow::Cow;
 
 /// TODO:
 pub struct ErrorMessage {
-    message: String,
+    message: Cow<'static, str>,
     source: Option<Box<dyn std::error::Error>>,
 }
 
 impl ErrorMessage {
     /// TODO:
-    pub fn without_source(message: impl Into<String>) -> Self {
+    pub fn without_source(message: impl Into<Cow<'static, str>>) -> Self {
         Self { message: message.into(), source: None }
     }
 
     /// TODO:
-    pub fn with_source(message: impl Into<String>, source: impl Error + 'static) -> Self {
+    pub fn with_source(message: impl Into<Cow<'static, str>>, source: impl Error + 'static) -> Self {
         Self { message: message.into(), source: Some(Box::new(source)) }
     }
 }
