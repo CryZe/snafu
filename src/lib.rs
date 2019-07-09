@@ -108,6 +108,9 @@ mod print;
 #[cfg(feature = "print")]
 pub use print::print_error;
 
+mod err_msg;
+pub use err_msg::ErrorMessage;
+
 #[cfg(feature = "rust_1_30")]
 macro_rules! generate_guide {
     (pub mod $name:ident; $($rest:tt)*) => {
@@ -221,6 +224,13 @@ pub trait ResultExt<T, E>: Sized {
         C: IntoError<E2, Source = E>,
         E2: std::error::Error + ErrorCompat;
 
+    /// With a context message.
+    fn context_msg<E2, S>(self, context: S) -> Result<T, E2>
+    where
+        S: Into<String>,
+        E: std::error::Error + 'static,
+        E2: From<ErrorMessage>;
+
     /// Extend a [`Result`][]'s error with lazily-generated context-sensitive information.
     ///
     /// [`Result`]: std::result::Result
@@ -307,6 +317,17 @@ impl<T, E> ResultExt<T, E> for std::result::Result<T, E> {
         self.map_err(|error| {
             let context = context();
             context.into_error(error)
+        })
+    }
+
+    fn context_msg<E2, S>(self, context: S) -> Result<T, E2>
+    where
+        S: Into<String>,
+        E: std::error::Error + 'static,
+        E2: From<ErrorMessage>,
+    {
+        self.map_err(|error| {
+            ErrorMessage::with_source(context.into(), Box::new(error)).into()
         })
     }
 
