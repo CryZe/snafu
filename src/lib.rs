@@ -109,12 +109,17 @@ mod print;
 pub use print::print_error;
 
 mod err_msg;
-pub use err_msg::Fail;
+pub use err_msg::{Fail, LazyMessage};
 
 /// TODO:
 #[macro_export]
 macro_rules! format_err {
-    ($($arg:tt)*) => { $crate::ErrorMessage::new(format!($($arg)*)) }
+    ($($arg:tt)*) => {
+        $crate::Fail(Box::new($crate::LazyMessage(move |f| {
+            use ::std::fmt::Write as _;
+            write!(f, $($arg)*)
+        })))
+    }
 }
 
 #[cfg(feature = "rust_1_30")]
@@ -345,7 +350,12 @@ impl<T, E> ResultExt<T, E> for std::result::Result<T, E> {
         F: Fn(&mut fmt::Formatter<'_>) -> fmt::Result + 'static,
         E: std::error::Error + 'static,
     {
-        self.map_err(|error| Fail(Box::new(err_msg::ErrorMessage::with_source(err_msg::LazyMessage(context), Box::new(error)))))
+        self.map_err(|error| {
+            Fail(Box::new(err_msg::ErrorMessage::with_source(
+                err_msg::LazyMessage(context),
+                Box::new(error),
+            )))
+        })
     }
 
     #[cfg(feature = "print")]
