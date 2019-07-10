@@ -23,56 +23,62 @@ impl Error for Fail {
 }
 
 /// TODO:
-pub struct LazyMessage<F>(pub F);
+pub struct LazyDisplay<F>(pub F);
 
-impl<F: Fn(&mut fmt::Formatter<'_>) -> fmt::Result> fmt::Display for LazyMessage<F> {
+impl<F: Fn(&mut fmt::Formatter<'_>) -> fmt::Result> fmt::Display for LazyDisplay<F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         (self.0)(f)
     }
 }
 
 /// TODO:
-pub struct ErrorMessage<T, E> {
-    message: T,
-    source: Option<E>,
-}
+pub struct ErrorFromDisplay<T>(pub T);
 
-impl<T, E> ErrorMessage<T, E> {
-    /// TODO:
-    pub fn without_source(message: T) -> Self {
-        Self {
-            message,
-            source: None,
-        }
-    }
-
-    /// TODO:
-    pub fn with_source(message: T, source: E) -> Self {
-        Self {
-            message,
-            source: Some(source),
-        }
-    }
-}
-
-impl<T: fmt::Display, E> fmt::Debug for ErrorMessage<T, E> {
+impl<T: fmt::Display> fmt::Debug for ErrorFromDisplay<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(self, f)
     }
 }
 
-impl<T: fmt::Display, E> fmt::Display for ErrorMessage<T, E> {
+impl<T: fmt::Display> fmt::Display for ErrorFromDisplay<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&self.0, f)
+    }
+}
+
+impl<T: fmt::Display> Error for ErrorFromDisplay<T> {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        None
+    }
+}
+
+/// TODO:
+pub struct WithSource<T, E> {
+    message: T,
+    source: E,
+}
+
+impl<T, E> WithSource<T, E> {
+    /// TODO:
+    pub fn new(message: T, source: E) -> Self {
+        Self { message, source }
+    }
+}
+
+impl<T: fmt::Display, E> fmt::Debug for WithSource<T, E> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self, f)
+    }
+}
+
+impl<T: fmt::Display, E> fmt::Display for WithSource<T, E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(&self.message, f)
     }
 }
 
-impl<T: fmt::Display, E: Error + 'static> Error for ErrorMessage<T, E> {
+impl<T: fmt::Display, E: Error + 'static> Error for WithSource<T, E> {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
-        if let Some(source) = &self.source {
-            Some(source)
-        } else {
-            None
-        }
+        Some(&self.source)
     }
 }

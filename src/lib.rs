@@ -109,16 +109,18 @@ mod print;
 pub use print::print_error;
 
 mod err_msg;
-pub use err_msg::{Fail, LazyMessage};
+pub use err_msg::{Fail, LazyDisplay, ErrorFromDisplay, WithSource};
 
 /// TODO:
 #[macro_export]
 macro_rules! format_err {
     ($($arg:tt)*) => {
-        $crate::Fail(Box::new($crate::LazyMessage(move |f| {
-            use ::std::fmt::Write as _;
-            write!(f, $($arg)*)
-        })))
+        $crate::Fail(Box::new($crate::ErrorFromDisplay(
+            $crate::LazyDisplay(move |f| {
+                use ::std::fmt::Write as _;
+                write!(f, $($arg)*)
+            })
+        )))
     }
 }
 
@@ -342,7 +344,12 @@ impl<T, E> ResultExt<T, E> for std::result::Result<T, E> {
         S: Display + 'static,
         E: std::error::Error + 'static,
     {
-        self.map_err(|error| Fail(Box::new(err_msg::ErrorMessage::with_source(context, error))))
+        self.map_err(|error| Fail(Box::new(
+            WithSource::new(
+                ErrorFromDisplay(context),
+                error,
+            )
+        )))
     }
 
     fn with_context_msg<F>(self, context: F) -> Result<T, Fail>
@@ -351,9 +358,9 @@ impl<T, E> ResultExt<T, E> for std::result::Result<T, E> {
         E: std::error::Error + 'static,
     {
         self.map_err(|error| {
-            Fail(Box::new(err_msg::ErrorMessage::with_source(
-                err_msg::LazyMessage(context),
-                Box::new(error),
+            Fail(Box::new(WithSource::new(
+                ErrorFromDisplay(LazyDisplay(context)),
+                error,
             )))
         })
     }
