@@ -232,18 +232,16 @@ pub trait ResultExt<T, E>: Sized {
         E2: std::error::Error + ErrorCompat;
 
     /// With a context message.
-    fn context_msg<E2, S>(self, context: S) -> Result<T, E2>
+    fn context_msg<S>(self, context: S) -> Result<T, ErrorMessage<S>>
     where
         S: Display,
-        E: std::error::Error + 'static,
-        E2: From<ErrorMessage<S>>;
+        E: std::error::Error + 'static;
 
     /// With a context message.
-    fn with_context_msg<E2, F>(self, context: F) -> Result<T, E2>
+    fn with_context_msg<F>(self, context: F) -> Result<T, ErrorMessage<LazyMessage<F>>>
     where
         F: Fn(&mut fmt::Formatter<'_>) -> fmt::Result,
-        E: std::error::Error + 'static,
-        E2: From<ErrorMessage<LazyMessage<F>>>;
+        E: std::error::Error + 'static;
 
     /// Extend a [`Result`][]'s error with lazily-generated context-sensitive information.
     ///
@@ -334,26 +332,20 @@ impl<T, E> ResultExt<T, E> for std::result::Result<T, E> {
         })
     }
 
-    fn context_msg<E2, S>(self, context: S) -> Result<T, E2>
+    fn context_msg<S>(self, context: S) -> Result<T, ErrorMessage<S>>
     where
         S: Display,
         E: std::error::Error + 'static,
-        E2: From<ErrorMessage<S>>,
     {
-        self.map_err(|error| ErrorMessage::new(context).with_source(error).into())
+        self.map_err(|error| ErrorMessage::new(context).with_source(error))
     }
 
-    fn with_context_msg<E2, F>(self, context: F) -> Result<T, E2>
+    fn with_context_msg<F>(self, context: F) -> Result<T, ErrorMessage<LazyMessage<F>>>
     where
         F: Fn(&mut fmt::Formatter<'_>) -> fmt::Result,
         E: std::error::Error + 'static,
-        E2: From<ErrorMessage<LazyMessage<F>>>,
     {
-        self.map_err(|error| {
-            ErrorMessage::new(LazyMessage(context))
-                .with_source(Box::new(error))
-                .into()
-        })
+        self.map_err(|error| ErrorMessage::new(LazyMessage(context)).with_source(Box::new(error)))
     }
 
     #[cfg(feature = "print")]
