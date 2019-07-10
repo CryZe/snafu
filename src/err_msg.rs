@@ -1,17 +1,28 @@
 use std::error::Error;
 use std::fmt;
-use std::borrow::Cow;
 
 /// TODO:
-pub struct ErrorMessage {
-    message: Cow<'static, str>,
+pub struct LazyMessage<F>(pub F);
+
+impl<F: Fn(&mut fmt::Formatter<'_>) -> fmt::Result> fmt::Display for LazyMessage<F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        (self.0)(f)
+    }
+}
+
+/// TODO:
+pub struct ErrorMessage<T> {
+    message: T,
     source: Option<Box<dyn std::error::Error>>,
 }
 
-impl ErrorMessage {
+impl<T: fmt::Display> ErrorMessage<T> {
     /// TODO:
-    pub fn new(message: impl Into<Cow<'static, str>>) -> Self {
-        Self { message: message.into(), source: None }
+    pub fn new(message: T) -> Self {
+        Self {
+            message,
+            source: None,
+        }
     }
 
     /// TODO:
@@ -21,19 +32,19 @@ impl ErrorMessage {
     }
 }
 
-impl fmt::Debug for ErrorMessage {
+impl<T: fmt::Display> fmt::Debug for ErrorMessage<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(self, f)
     }
 }
 
-impl fmt::Display for ErrorMessage {
+impl<T: fmt::Display> fmt::Display for ErrorMessage<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(&self.message, f)
     }
 }
 
-impl std::error::Error for ErrorMessage {
+impl<T: fmt::Display> std::error::Error for ErrorMessage<T> {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         if let Some(source) = &self.source {
             let source: &(dyn std::error::Error + 'static) = source.as_ref();

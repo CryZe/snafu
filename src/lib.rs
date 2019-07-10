@@ -109,7 +109,13 @@ mod print;
 pub use print::print_error;
 
 mod err_msg;
-pub use err_msg::ErrorMessage;
+pub use err_msg::{ErrorMessage, LazyMessage};
+
+/// TODO:
+#[macro_export]
+macro_rules! format_err {
+    ($($arg:tt)*) => { $crate::ErrorMessage::new(format!($($arg)*)) }
+}
 
 #[cfg(feature = "rust_1_30")]
 macro_rules! generate_guide {
@@ -154,8 +160,8 @@ generate_guide! {
 #[cfg(feature = "rust_1_30")]
 doc_comment::doctest!("../README.md", readme_tests);
 
-use std::borrow::Cow;
 use std::error;
+use std::fmt::{self, Display};
 
 /// Ensure a condition is true. If it is not, return from the function
 /// with an error.
@@ -228,17 +234,16 @@ pub trait ResultExt<T, E>: Sized {
     /// With a context message.
     fn context_msg<E2, S>(self, context: S) -> Result<T, E2>
     where
-        S: Into<Cow<'static, str>>,
+        S: Display,
         E: std::error::Error + 'static,
-        E2: From<ErrorMessage>;
+        E2: From<ErrorMessage<S>>;
 
     /// With a context message.
-    fn with_context_msg<E2, F, S>(self, context: F) -> Result<T, E2>
+    fn with_context_msg<E2, F>(self, context: F) -> Result<T, E2>
     where
-        F: FnOnce() -> S,
-        S: Into<Cow<'static, str>>,
+        F: Fn(&mut fmt::Formatter<'_>) -> fmt::Result,
         E: std::error::Error + 'static,
-        E2: From<ErrorMessage>;
+        E2: From<ErrorMessage<LazyMessage<F>>>;
 
     /// Extend a [`Result`][]'s error with lazily-generated context-sensitive information.
     ///
@@ -331,24 +336,23 @@ impl<T, E> ResultExt<T, E> for std::result::Result<T, E> {
 
     fn context_msg<E2, S>(self, context: S) -> Result<T, E2>
     where
-        S: Into<Cow<'static, str>>,
+        S: Display,
         E: std::error::Error + 'static,
-        E2: From<ErrorMessage>,
+        E2: From<ErrorMessage<S>>,
     {
-        self.map_err(|error| {
-            ErrorMessage::new(context).with_source(error).into()
-        })
+        self.map_err(|error| ErrorMessage::new(context).with_source(error).into())
     }
 
-    fn with_context_msg<E2, F, S>(self, context: F) -> Result<T, E2>
+    fn with_context_msg<E2, F>(self, context: F) -> Result<T, E2>
     where
-        F: FnOnce() -> S,
-        S: Into<Cow<'static, str>>,
+        F: Fn(&mut fmt::Formatter<'_>) -> fmt::Result,
         E: std::error::Error + 'static,
-        E2: From<ErrorMessage>,
+        E2: From<ErrorMessage<LazyMessage<F>>>,
     {
         self.map_err(|error| {
-            ErrorMessage::new(context()).with_source(Box::new(error)).into()
+            ErrorMessage::new(LazyMessage(context))
+                .with_source(Box::new(error))
+                .into()
         })
     }
 
@@ -631,17 +635,15 @@ where
 }
 
 /// Iterates over the whole error chain.
-pub fn chain<'a>(error: &'a (dyn std::error::Error + 'static)) -> impl Iterator<Item = &'a (dyn std::error::Error + 'static)> {
+pub fn chain<'a>(
+    error: &'a (dyn std::error::Error + 'static),
+) -> impl Iterator<Item = &'a (dyn std::error::Error + 'static)> {
     std::iter::successors(Some(error), |e| e.source())
 }
 
 /// Iterates over the sources of the error, skipping the error itself.
-pub fn sources(error: &dyn std::error::Error) -> impl Iterator<Item = &(dyn std::error::Error + 'static)> {
+pub fn sources(
+    error: &dyn std::error::Error,
+) -> impl Iterator<Item = &(dyn std::error::Error + 'static)> {
     std::iter::successors(error.source(), |e| e.source())
-}
-
-/// TODO:
-#[macro_export]
-macro_rules! format_err {
-    ($($arg:tt)*) => { $crate::ErrorMessage::new(format!($($arg)*)) }
 }
