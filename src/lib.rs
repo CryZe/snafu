@@ -109,7 +109,7 @@ mod print;
 pub use print::print_error;
 
 mod err_msg;
-pub use err_msg::{ErrorMessage, LazyMessage};
+pub use err_msg::Fail;
 
 /// TODO:
 #[macro_export]
@@ -232,15 +232,15 @@ pub trait ResultExt<T, E>: Sized {
         E2: std::error::Error + ErrorCompat;
 
     /// With a context message.
-    fn context_msg<S>(self, context: S) -> Result<T, ErrorMessage<S>>
+    fn context_msg<S>(self, context: S) -> Result<T, Fail>
     where
-        S: Display,
+        S: Display + 'static,
         E: std::error::Error + 'static;
 
     /// With a context message.
-    fn with_context_msg<F>(self, context: F) -> Result<T, ErrorMessage<LazyMessage<F>>>
+    fn with_context_msg<F>(self, context: F) -> Result<T, Fail>
     where
-        F: Fn(&mut fmt::Formatter<'_>) -> fmt::Result,
+        F: Fn(&mut fmt::Formatter<'_>) -> fmt::Result + 'static,
         E: std::error::Error + 'static;
 
     /// Extend a [`Result`][]'s error with lazily-generated context-sensitive information.
@@ -332,20 +332,20 @@ impl<T, E> ResultExt<T, E> for std::result::Result<T, E> {
         })
     }
 
-    fn context_msg<S>(self, context: S) -> Result<T, ErrorMessage<S>>
+    fn context_msg<S>(self, context: S) -> Result<T, Fail>
     where
-        S: Display,
+        S: Display + 'static,
         E: std::error::Error + 'static,
     {
-        self.map_err(|error| ErrorMessage::new(context).with_source(error))
+        self.map_err(|error| Fail(Box::new(err_msg::ErrorMessage::with_source(context, error))))
     }
 
-    fn with_context_msg<F>(self, context: F) -> Result<T, ErrorMessage<LazyMessage<F>>>
+    fn with_context_msg<F>(self, context: F) -> Result<T, Fail>
     where
-        F: Fn(&mut fmt::Formatter<'_>) -> fmt::Result,
+        F: Fn(&mut fmt::Formatter<'_>) -> fmt::Result + 'static,
         E: std::error::Error + 'static,
     {
-        self.map_err(|error| ErrorMessage::new(LazyMessage(context)).with_source(Box::new(error)))
+        self.map_err(|error| Fail(Box::new(err_msg::ErrorMessage::with_source(err_msg::LazyMessage(context), Box::new(error)))))
     }
 
     #[cfg(feature = "print")]
