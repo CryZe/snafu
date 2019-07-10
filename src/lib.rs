@@ -127,13 +127,13 @@ macro_rules! format_err {
 /// TODO:
 #[macro_export]
 macro_rules! chain {
-    ($first:expr, $($err:expr),*) => {
+    ($first:expr, $($err:expr),*) => {{
         let err = $first;
         $(
             let err = $crate::WithSource::new($err, err);
         )*
         crate::Fail::new(err)
-    }
+    }}
 }
 
 #[cfg(feature = "rust_1_30")]
