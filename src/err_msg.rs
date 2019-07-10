@@ -4,6 +4,13 @@ use std::fmt;
 /// TODO:
 pub struct Fail(pub Box<dyn Error>);
 
+impl Fail {
+    /// TODO:
+    pub fn new(err: impl Error + 'static) -> Self {
+        Self(err.into())
+    }
+}
+
 impl fmt::Debug for Fail {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(self, f)
